@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Happy Birthday My Love ❤️</title>
+  <meta name="description" content="A special romantic birthday surprise crafted with love." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;600;700&family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ==================== GLOBAL LAYER: Floating Hearts ==================== -->
+  <div id="global-hearts" aria-hidden="true"></div>
+  <div id="global-sparkles" aria-hidden="true"></div>
+
+  <!-- ==================== MUSIC PLAYER ==================== -->
+  <div id="music-player" class="music-player" title="Toggle Music">
+    <button id="music-btn" class="music-btn" aria-label="Play or Pause Background Music">
+      <span class="music-icon">🎵</span>
+    </button>
+    <!-- Placeholder audio — user can replace src with their own file -->
+    <audio id="bg-music" loop>
+      <source src="assets/music/background.mp3" type="audio/mpeg" />
+    </audio>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!--  STEP 1 – COUNTDOWN PAGE                                              -->
+  <!-- ===================================================================== -->
+  <section id="step-1" class="step active" aria-label="Countdown Page">
+    <div class="particles-container" id="particles-1"></div>
+
+    <div class="step1-content glass-card">
+      <div class="step1-emoji float-anim">💌</div>
+      <h1 class="step1-heading">A Special Surprise is<br/>Waiting for You</h1>
+      <p class="step1-sub">Something beautiful is coming your way…</p>
+
+      <!-- Countdown Timer -->
+      <div id="countdown-display" class="countdown-grid">
+        <div class="countdown-unit">
+          <span id="cd-days" class="cd-number">00</span>
+          <span class="cd-label">Days</span>
+        </div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit">
+          <span id="cd-hours" class="cd-number">00</span>
+          <span class="cd-label">Hours</span>
+        </div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit">
+          <span id="cd-mins" class="cd-number">00</span>
+          <span class="cd-label">Minutes</span>
+        </div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit">
+          <span id="cd-secs" class="cd-number">00</span>
+          <span class="cd-label">Seconds</span>
+        </div>
+      </div>
+
+      <!-- Countdown Done Message (hidden until zero) -->
+      <div id="countdown-done" class="countdown-done hidden">
+        <span>🎉 The moment has arrived! 🎉</span>
+      </div>
+    </div>
+
+    <!-- Skip Button -->
+    <button id="skip-btn" class="skip-btn glow-pulse" aria-label="Skip countdown and open surprise">
+      Skip ✨
+    </button>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!--  STEP 2 – HEY MY LOVE                                                -->
+  <!-- ===================================================================== -->
+  <section id="step-2" class="step hidden" aria-label="Hey My Love Page">
+    <div class="particles-container" id="particles-2"></div>
+
+    <div class="step2-content">
+      <h1 id="step2-line1" class="step2-heading animate-fadeup">Hey My Love ❤️</h1>
+      <p id="step2-line2" class="step2-sub hidden">Do You Love Me? 🥹❤️</p>
+
+      <div id="step2-buttons" class="step-buttons hidden">
+        <button id="yes-btn-2" class="btn-yes glow-pulse" aria-label="Yes, I love you">YES 💖</button>
+        <button id="no-btn-2" class="btn-no" aria-label="No">NO 😅</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!--  STEP 3 – CATCH THE BUTTERFLIES                                       -->
+  <!-- ===================================================================== -->
+  <section id="step-3" class="step hidden" aria-label="Catch the Butterflies Page">
+    <div class="particles-container" id="particles-3"></div>
+
+    <div class="garden-bg" aria-hidden="true"></div>
+
+    <h2 id="step3-title" class="step3-title">Catch All the Butterflies! 🦋</h2>
+    <p id="step3-hint" class="step3-hint">Click or drag them into the jar below ✨</p>
+    
+    <!-- Butterfly Arena -->
+    <div id="butterfly-arena" class="butterfly-arena glass-card" aria-label="Butterfly arena">
+      <!-- Overlay for quote -->
+      <div id="quote-overlay" class="quote-overlay hidden">
+        <div id="quote-text" class="quote-text"></div>
+        <div class="tap-continue">Tap anywhere to continue ✨</div>
+      </div>
+      <!-- Butterflies injected via JS -->
+    </div>
+
+    <!-- Progress -->
+    <div id="butterfly-progress" class="butterfly-progress">
+      <span id="caught-count">0</span> / 8 🦋
+    </div>
+
+    <!-- Jar -->
+    <div id="butterfly-jar" class="butterfly-jar" aria-label="Butterfly jar">
+      <div class="jar-body">
+        <div class="jar-top"></div>
+        <div class="jar-glass">
+          <div id="jar-inner" class="jar-inner"></div>
+          <div id="jar-tap-msg" class="jar-tap-msg hidden">Tap to Open the Jar 🎁</div>
+        </div>
+        <div class="jar-bottom"></div>
+      </div>
+      <div id="jar-glow" class="jar-glow hidden"></div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!--  STEP 4 – BIRTHDAY WISHES                                             -->
+  <!-- ===================================================================== -->
+  <section id="step-4" class="step hidden" aria-label="Birthday Wishes Page">
+    <div class="particles-container" id="particles-4"></div>
+
+    <!-- Balloons -->
+    <div id="balloons-container" class="balloons-container" aria-hidden="true"></div>
+
+    <!-- Roses -->
+    <div id="roses-container" class="roses-container" aria-hidden="true"></div>
+
+    <div class="birthday-card glass-card">
+      <div class="card-ribbon">🎂</div>
+      <h1 class="birthday-heading">Happy Birthday<br/><span class="name-highlight">My Love</span> ❤️✨</h1>
+
+      <div class="birthday-wishes">
+        <p class="wish-line">Happy Birthday, my love. ❤️</p>
+        <p class="wish-line">Every moment with you is my favourite memory.</p>
+        <p class="wish-line">You make my world brighter and my heart happier.</p>
+        <p class="wish-line">I am so lucky to have you in my life.</p>
+        <p class="wish-line">Thank you for being my biggest happiness. 💫</p>
+      </div>
+
+      <div class="birthday-question">
+        Are you ready to travel with me for the rest of our lives? 🌍💕
+      </div>
+
+      <div class="step-buttons">
+        <button id="yes-btn-4" class="btn-yes glow-pulse" aria-label="Yes, I am ready">YES ❤️</button>
+        <button id="no-btn-4" class="btn-no btn-no-static" aria-label="No">NO 💔</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!--  STEP 5 – FINAL PAGE (I LOVE YOU)                                    -->
+  <!-- ===================================================================== -->
+  <section id="step-5" class="step hidden" aria-label="Final Love Page">
+    <div class="particles-container" id="particles-5"></div>
+
+    <!-- Moonlight glow effect -->
+    <div class="moon-glow" aria-hidden="true"></div>
+
+    <!-- Glowing heart animation -->
+    <div class="glow-heart-bg" aria-hidden="true">
+      <div class="bg-heart">❤️</div>
+    </div>
+
+    <div class="final-content glass-card">
+      <h1 class="final-heading">I Love You ❤️</h1>
+      <p class="final-sub">Forever and Always ❤️</p>
+      <div class="final-messages">
+        <p class="final-line">You are my happiness.</p>
+        <p class="final-line">You are my favourite person.</p>
+        <p class="final-line">Thank you for being in my life.</p>
+        <p class="final-line">I will always choose you. 💍</p>
+      </div>
+      <div class="final-hearts">
+        <span id="big-heart" class="big-heart pulse-heart">❤️</span>
+      </div>
+    </div>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>
