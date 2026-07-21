@@ -396,7 +396,8 @@ function spawnButterflies() {
   butterflies = [];
   if (butterflyRAF) { cancelAnimationFrame(butterflyRAF); butterflyRAF = null; }
 
-  const { width: W, height: H } = arena.getBoundingClientRect();
+  let W = arena.clientWidth || arena.offsetWidth || 300;
+  let H = arena.clientHeight || arena.offsetHeight || 220;
   const bfSize = 40;   // emoji butterfly size (px)
 
   for (let i = 0; i < CONFIG.TOTAL_BUTTERFLIES; i++) {
@@ -414,10 +415,12 @@ function spawnButterflies() {
     // Natural wing flap every 1 second
     el.style.animation = `wingFlap 1s ease-out ${Math.random()}s infinite`;
 
-    const x = bfSize + Math.random() * (W - bfSize * 2.5);
-    const y = bfSize + Math.random() * (H - bfSize * 2.5);
+    const xRange = Math.max(50, W - bfSize * 2.5);
+    const yRange = Math.max(50, H - bfSize * 2.5);
+    const x = bfSize + Math.random() * xRange;
+    const y = bfSize + Math.random() * yRange;
     const angle = Math.random() * Math.PI * 2;
-    const speed = 0.1 + Math.random() * 0.15;   // slow down butterflies smoothly
+    const speed = 0.8 + Math.random() * 0.8;   // faster speed so movement is clearly visible
 
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
@@ -438,7 +441,8 @@ function animateButterflies() {
 
   const arena = document.getElementById('butterfly-arena');
   if (!arena) return;
-  const { width: W, height: H } = arena.getBoundingClientRect();
+  let W = arena.clientWidth || arena.offsetWidth || 300;
+  let H = arena.clientHeight || arena.offsetHeight || 220;
   const bfSize = 40;
 
   butterflies.forEach(bf => {
