@@ -1,18 +1,17 @@
 /**
  * =====================================================================
  *  ROMANTIC BIRTHDAY WEBSITE – script.js
- *  Handles: Countdown, Step Navigation, Butterflies, NO-Button,
- *           Floating Hearts, Sparkles, Music, Animations
  * =====================================================================
  */
 
 /* ── CONFIG ─────────────────────────────────────────────────────────── */
 const CONFIG = {
-  BIRTHDAY: new Date(2026, 6, 12, 0, 0, 0),
+  BIRTHDAY: new Date(2026, 7, 24, 0, 0, 0),
   TOTAL_BUTTERFLIES: 8,
-  NO_FLEE_RADIUS: 120,
   HEART_COUNT: 22,
   SPARKLE_COUNT: 35,
+  NO_FLEE_RADIUS: 130,          // px – Step 2 flee trigger distance
+  NO2_MOVE_DURATION: 600000,    // ms – Step 2 NO button moves for 10 mins then stops
 };
 
 /* ── BUTTERFLY QUOTES ─────────────────────────────────────────────── */
@@ -28,28 +27,28 @@ const BUTTERFLY_QUOTES = [
 ];
 
 /* ── STATE ───────────────────────────────────────────────────────────── */
-let currentStep   = 1;
-let caughtCount   = 0;
+let currentStep     = 1;
+let caughtCount     = 0;
 let countdownInterval = null;
-let musicPlaying  = false;
-let butterflies   = [];
-let butterflyRAF  = null;
-let isPaused      = false;
+let butterflies     = [];
+let butterflyRAF    = null;
+let isPaused        = false;
 let isTransitioning = false;
 
-/* ── NO BUTTON STATE (Step 2) ─────────────────────────────────────── */
-// Stays visible at home. Cursor close → jumps to random spot → glides back.
-let noBtn2HomeX = 0, noBtn2HomeY = 0;
-let noBtn2CurX  = 0, noBtn2CurY  = 0;
-let noBtn2W = 0, noBtn2H = 0;
-let noBtn2Away  = false;
-let noBtn2RAFId = null;
-let noBtn2Cooldown = false;   // prevents rapid re-triggering
+/* ── STEP 2 NO BUTTON STATE ─────────────────────────────────────────── */
+let noBtn2HomeX    = 0, noBtn2HomeY = 0;
+let noBtn2CurX     = 0, noBtn2CurY  = 0;
+let noBtn2W        = 0, noBtn2H     = 0;
+let noBtn2Moving   = false;   // true while the button is away / returning
+let noBtn2Locked   = false;   // true after 1 min – stops all movement
+let noBtn2RAFId    = null;
+let noBtn2TimerId  = null;    // 1-min timer
 
 /* ═══════════════════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
+  createPopupOverlay();
   initGlobalHearts();
   initGlobalSparkles();
   initMusicPlayer();
@@ -57,6 +56,64 @@ document.addEventListener('DOMContentLoaded', () => {
   startCountdown();
   setupJarClick();
 });
+
+/* ─── Shared popup overlay (reused for Step 2 & Step 4 messages) ─── */
+function createPopupOverlay() {
+  const el = document.createElement('div');
+  el.id = 'msg-popup';
+  el.style.cssText = `
+    display:none; position:fixed; inset:0; z-index:9999;
+    align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.55); backdrop-filter:blur(6px);
+  `;
+  el.innerHTML = `
+    <div id="msg-popup-box" style="
+      background:linear-gradient(135deg,rgba(255,180,210,0.25),rgba(200,130,255,0.2));
+      border:1.5px solid rgba(255,255,255,0.4);
+      border-radius:24px;
+      padding: clamp(28px,6vw,48px) clamp(28px,7vw,56px);
+      max-width:min(88vw,440px);
+      text-align:center;
+      box-shadow:0 12px 60px rgba(200,80,150,0.35);
+      backdrop-filter:blur(20px);
+      animation:fadeSlideUp 0.4s both;
+    ">
+      <div id="msg-popup-emoji" style="font-size:clamp(2.5rem,8vw,3.5rem);margin-bottom:12px;">😏</div>
+      <p id="msg-popup-text" style="
+        font-family:'Dancing Script',cursive;
+        font-size:clamp(1.2rem,4vw,1.7rem);
+        color:#ffd6e7;
+        line-height:1.55;
+        margin-bottom:20px;
+      "></p>
+      <button id="msg-popup-close" style="
+        padding:12px 36px;
+        border-radius:50px;
+        background:linear-gradient(135deg,#e64980,#845ef7);
+        border:2px solid rgba(255,255,255,0.35);
+        color:#fff;
+        font-family:'Dancing Script',cursive;
+        font-size:1.1rem;
+        cursor:pointer;
+        box-shadow:0 0 18px rgba(230,73,128,0.5);
+      ">Okay 💖</button>
+    </div>
+  `;
+  document.body.appendChild(el);
+  document.getElementById('msg-popup-close').addEventListener('click', closePopup);
+  el.addEventListener('click', (e) => { if (e.target === el) closePopup(); });
+}
+
+function showPopup(text, emoji = '😏') {
+  document.getElementById('msg-popup-text').textContent  = text;
+  document.getElementById('msg-popup-emoji').textContent = emoji;
+  const popup = document.getElementById('msg-popup');
+  popup.style.display = 'flex';
+}
+
+function closePopup() {
+  document.getElementById('msg-popup').style.display = 'none';
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    NAVIGATION
@@ -69,7 +126,6 @@ function goToStep(next) {
   const nextEl = document.getElementById(`step-${next}`);
   if (!curEl || !nextEl) { isTransitioning = false; return; }
 
-  // Stop NO button animation when leaving step 2
   if (currentStep === 2) stopNoBtn2();
 
   curEl.classList.add('exiting');
@@ -80,17 +136,16 @@ function goToStep(next) {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     nextEl.classList.add('active');
     currentStep = next;
-
     setTimeout(() => {
       curEl.classList.remove('exiting');
       curEl.classList.add('hidden');
       isTransitioning = false;
     }, 900);
-
     if (next === 2) initStep2();
     if (next === 3) initStep3();
     if (next === 4) initStep4();
     if (next === 5) initStep5();
+    if (next === 6) initStep6();
   }));
 }
 
@@ -98,132 +153,149 @@ function goToStep(next) {
    BUTTON SETUP
 ═══════════════════════════════════════════════════════════════════════ */
 function setupButtons() {
-  // Step 1 – skip
   const skip = document.getElementById('skip-btn');
-  if (skip) skip.addEventListener('click', () => {
-    clearInterval(countdownInterval);
-    goToStep(2);
-  });
+  if (skip) skip.addEventListener('click', () => { clearInterval(countdownInterval); goToStep(2); });
 
-  // Step 2 YES
   const yes2 = document.getElementById('yes-btn-2');
   if (yes2) yes2.addEventListener('click', () => goToStep(3));
 
-  // Step 4 YES
   const yes4 = document.getElementById('yes-btn-4');
   if (yes4) yes4.addEventListener('click', () => goToStep(5));
 
-  // Quote overlay – tap anywhere to resume
+  const next5 = document.getElementById('next-btn-5');
+  if (next5) next5.addEventListener('click', () => goToStep(6));
+
+  // Step 4 NO button – static, shows popup on click
+  const no4 = document.getElementById('no-btn-4');
+  if (no4) {
+    no4.classList.remove('btn-no-static');   // remove pointer-events:none so click works
+    no4.style.pointerEvents = 'auto';
+    no4.style.cursor = 'pointer';
+    no4.addEventListener('click', () => {
+      showPopup("nope, you're not allowed to say that.. you're mine. 💕", '🚫');
+    });
+    no4.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      showPopup("nope, you're not allowed to say that.. you're mine. 💕", '🚫');
+    }, { passive: false });
+  }
+
+  // Quote overlay – tap to continue
   const overlay = document.getElementById('quote-overlay');
   if (overlay) overlay.addEventListener('click', dismissQuote);
 
-  // NO button flee – mousemove and touch
+  // Pointer handlers for Step 2 NO button
   document.addEventListener('mousemove',  (e) => handlePointer(e.clientX, e.clientY), { passive: true });
   document.addEventListener('touchmove',  (e) => handlePointer(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
   document.addEventListener('touchstart', (e) => handlePointer(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   STEP 2 – NO BUTTON (stays home, flees, returns)
+   STEP 2 – HEY MY LOVE  (NO button logic)
 ═══════════════════════════════════════════════════════════════════════ */
 function initStep2() {
-  // Show both buttons immediately
   const line2   = document.getElementById('step2-line2');
   const buttons = document.getElementById('step2-buttons');
   if (line2)   line2.classList.remove('hidden');
   if (buttons) buttons.classList.remove('hidden');
 
-  // Reset NO button to natural in-flow position, clear any inline styles
+  // Reset NO button
   const btn = document.getElementById('no-btn-2');
   if (!btn) return;
-  btn.style.position  = '';
-  btn.style.left      = '';
-  btn.style.top       = '';
-  btn.style.transform = '';
-  btn.style.transition = '';
-  noBtn2Away = false;
+  btn.style.cssText = '';
+  noBtn2Moving  = false;
+  noBtn2Locked  = false;
+  noBtn2HomeX   = 0;
+  noBtn2HomeY   = 0;
+
+  // Start 1-minute timer – after which the NO button freezes in place
+  clearTimeout(noBtn2TimerId);
+  noBtn2TimerId = setTimeout(() => {
+    noBtn2Locked = true;
+    // Smoothly return to home one last time then lock
+    if (noBtn2Moving) glideNoBtn2Home(btn, true);
+  }, CONFIG.NO2_MOVE_DURATION);
+
+  // NO button popup when tapped directly (mobile friendly)
+  btn.addEventListener('click', () => {
+    showPopup("i can't let you say that.. you're mine 💕", '🥺');
+  }, { once: false });
 }
 
+/* Capture home position from DOM */
 function captureNoBtn2Home() {
   const btn = document.getElementById('no-btn-2');
   if (!btn) return false;
   const r = btn.getBoundingClientRect();
-  if (r.width === 0) return false;
+  if (!r.width) return false;
   noBtn2W     = r.width;
   noBtn2H     = r.height;
-  noBtn2HomeX = r.left + r.width  / 2;  // centre
+  noBtn2HomeX = r.left + r.width  / 2;
   noBtn2HomeY = r.top  + r.height / 2;
   noBtn2CurX  = r.left;
   noBtn2CurY  = r.top;
   return true;
 }
 
+/* Pointer proximity handler – only for Step 2 */
 function handlePointer(cx, cy) {
-  if (currentStep !== 2 || isTransitioning) return;
+  if (currentStep !== 2 || isTransitioning || noBtn2Locked) return;
 
   const btn = document.getElementById('no-btn-2');
   if (!btn) return;
 
-  // Capture home position once when first interaction happens
-  if (noBtn2HomeX === 0 && noBtn2HomeY === 0) {
-    if (!captureNoBtn2Home()) return;
-  }
+  if (!noBtn2HomeX && !captureNoBtn2Home()) return;
 
-  // Use current display position centre
-  const dispX = noBtn2Away ? (noBtn2CurX + noBtn2W / 2) : noBtn2HomeX;
-  const dispY = noBtn2Away ? (noBtn2CurY + noBtn2H / 2) : noBtn2HomeY;
+  // Check distance against CURRENT displayed position
+  const btnCX = noBtn2Moving ? (noBtn2CurX + noBtn2W / 2) : noBtn2HomeX;
+  const btnCY = noBtn2Moving ? (noBtn2CurY + noBtn2H / 2) : noBtn2HomeY;
+  const dist  = Math.hypot(cx - btnCX, cy - btnCY);
 
-  const dx   = dispX - cx;
-  const dy   = dispY - cy;
-  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < CONFIG.NO_FLEE_RADIUS && !noBtn2Moving) {
+    // Jump to a smooth random new location within viewport
+    const margin = 24;
+    let randX = margin + Math.random() * (window.innerWidth  - noBtn2W - margin * 2);
+    let randY = margin + Math.random() * (window.innerHeight - noBtn2H - margin * 2);
 
-  if (dist < CONFIG.NO_FLEE_RADIUS && !noBtn2Away && !noBtn2Cooldown) {
-    // ── Cursor is near & button is home → jump to a random visible spot ──
-    const margin = 20;
-    const randX  = margin + Math.random() * (window.innerWidth  - noBtn2W - margin * 2);
-    const randY  = margin + Math.random() * (window.innerHeight - noBtn2H - margin * 2);
+    // Avoid placing it too close to home or too close to cursor
+    if (Math.hypot(randX + noBtn2W/2 - noBtn2HomeX, randY + noBtn2H/2 - noBtn2HomeY) < 80) {
+      randX = window.innerWidth / 2 - noBtn2W / 2;
+      randY = window.innerHeight * 0.15;
+    }
 
-    noBtn2CurX = randX;
-    noBtn2CurY = randY;
-    noBtn2Away = true;
-    noBtn2Cooldown = true;
+    noBtn2CurX   = randX;
+    noBtn2CurY   = randY;
+    noBtn2Moving = true;
 
     btn.style.position   = 'fixed';
-    btn.style.transition = 'left 0.18s ease-out, top 0.18s ease-out';
-    btn.style.left = `${randX}px`;
-    btn.style.top  = `${randY}px`;
+    btn.style.transition = 'left 0.35s cubic-bezier(0.25,0.46,0.45,0.94), top 0.35s cubic-bezier(0.25,0.46,0.45,0.94)';
+    btn.style.left       = `${randX}px`;
+    btn.style.top        = `${randY}px`;
 
-    // After landing, wait a moment then glide home
-    setTimeout(() => {
-      glideNoBtn2Home(btn);
-    }, 900);
+    // After a short delay, smoothly glide back home
+    setTimeout(() => glideNoBtn2Home(btn, false), 1200);
   }
 }
 
-function glideNoBtn2Home(btn) {
+/* Smooth glide back to home position using RAF easing */
+function glideNoBtn2Home(btn, lockAfter) {
   cancelAnimationFrame(noBtn2RAFId);
-  btn.style.transition = '';  // hand control to RAF
+  btn.style.transition = '';   // RAF takes over
 
-  const targetLeft = noBtn2HomeX - noBtn2W / 2;
-  const targetTop  = noBtn2HomeY - noBtn2H / 2;
+  const targetL = noBtn2HomeX - noBtn2W / 2;
+  const targetT = noBtn2HomeY - noBtn2H / 2;
 
   function step() {
-    noBtn2CurX += (targetLeft - noBtn2CurX) * 0.09;
-    noBtn2CurY += (targetTop  - noBtn2CurY) * 0.09;
-
+    noBtn2CurX += (targetL - noBtn2CurX) * 0.08;
+    noBtn2CurY += (targetT - noBtn2CurY) * 0.08;
     btn.style.left = `${noBtn2CurX}px`;
     btn.style.top  = `${noBtn2CurY}px`;
 
-    if (Math.abs(noBtn2CurX - targetLeft) < 1 && Math.abs(noBtn2CurY - targetTop) < 1) {
-      // Arrived – snap fully back to natural flow
-      noBtn2Away     = false;
-      noBtn2Cooldown = false;
-      noBtn2HomeX    = 0;   // recapture fresh next time
-      noBtn2HomeY    = 0;
-      btn.style.position   = '';
-      btn.style.left       = '';
-      btn.style.top        = '';
-      btn.style.transition = '';
+    if (Math.abs(noBtn2CurX - targetL) < 0.8 && Math.abs(noBtn2CurY - targetT) < 0.8) {
+      // Snapped back – restore to natural flow
+      noBtn2Moving = false;
+      btn.style.cssText = '';
+      if (lockAfter) noBtn2Locked = true;
     } else {
       noBtn2RAFId = requestAnimationFrame(step);
     }
@@ -233,17 +305,13 @@ function glideNoBtn2Home(btn) {
 
 function stopNoBtn2() {
   cancelAnimationFrame(noBtn2RAFId);
-  noBtn2Away  = false;
-  noBtn2HomeX = 0;
-  noBtn2HomeY = 0;
-  noBtn2Cooldown = false;
+  clearTimeout(noBtn2TimerId);
+  noBtn2Moving = false;
+  noBtn2Locked = false;
+  noBtn2HomeX  = 0;
+  noBtn2HomeY  = 0;
   const btn = document.getElementById('no-btn-2');
-  if (btn) {
-    btn.style.position  = '';
-    btn.style.left      = '';
-    btn.style.top       = '';
-    btn.style.transition = '';
-  }
+  if (btn) btn.style.cssText = '';
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -260,16 +328,14 @@ function startCountdown() {
 }
 
 function updateCountdown() {
-  const diff = CONFIG.BIRTHDAY.getTime() - Date.now();
+  const diff   = CONFIG.BIRTHDAY.getTime() - Date.now();
   const gridEl = document.getElementById('countdown-display');
   const doneEl = document.getElementById('countdown-done');
-
   if (diff <= 0) {
     gridEl.style.display = 'none';
     doneEl.classList.remove('hidden');
     return true;
   }
-
   const s = Math.floor(diff / 1000);
   document.getElementById('cd-days').textContent  = String(Math.floor(s / 86400)).padStart(2, '0');
   document.getElementById('cd-hours').textContent = String(Math.floor((s % 86400) / 3600)).padStart(2, '0');
@@ -283,79 +349,28 @@ function updateCountdown() {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   STEP 3 – BUTTERFLIES
+   STEP 3 – BUTTERFLIES  (emoji style 🦋)
 ═══════════════════════════════════════════════════════════════════════ */
-const BF_COLORS = [
-  ['#FF6B9D','#FF9EC4'],
-  ['#C084FC','#E9B8FF'],
-  ['#F97316','#FED7AA'],
-  ['#34D399','#A7F3D0'],
-  ['#60A5FA','#BAE6FD'],
-  ['#F472B6','#FBD0E4'],
-  ['#A78BFA','#DDD6FE'],
-  ['#FBBF24','#FEF08A'],
-];
-
-function makeButterflyGlow(colors) {
-  const [primary, light] = colors;
-  const id = primary.slice(1);
-  return `<svg viewBox="0 0 80 50" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="wl${id}" cx="70%" cy="40%">
-        <stop offset="0%" stop-color="${light}" stop-opacity="0.95"/>
-        <stop offset="100%" stop-color="${primary}" stop-opacity="0.7"/>
-      </radialGradient>
-      <radialGradient id="wr${id}" cx="30%" cy="40%">
-        <stop offset="0%" stop-color="${light}" stop-opacity="0.95"/>
-        <stop offset="100%" stop-color="${primary}" stop-opacity="0.7"/>
-      </radialGradient>
-    </defs>
-    <g class="wing-left">
-      <ellipse cx="28" cy="20" rx="26" ry="18" fill="url(#wl${id})" opacity="0.9"/>
-      <ellipse cx="30" cy="38" rx="18" ry="10" fill="${primary}" opacity="0.65"/>
-    </g>
-    <g class="wing-right">
-      <ellipse cx="52" cy="20" rx="26" ry="18" fill="url(#wr${id})" opacity="0.9"/>
-      <ellipse cx="50" cy="38" rx="18" ry="10" fill="${primary}" opacity="0.65"/>
-    </g>
-    <ellipse cx="40" cy="26" rx="4" ry="14" fill="#333" opacity="0.8"/>
-    <line x1="38" y1="13" x2="30" y2="4" stroke="#333" stroke-width="1.2" opacity="0.7"/>
-    <line x1="42" y1="13" x2="50" y2="4" stroke="#333" stroke-width="1.2" opacity="0.7"/>
-    <circle cx="30" cy="4" r="2" fill="${primary}"/>
-    <circle cx="50" cy="4" r="2" fill="${primary}"/>
-  </svg>`;
-}
-
 function initStep3() {
-  // Reset state
   caughtCount = 0;
   isPaused    = false;
   butterflies = [];
 
-  // Reset UI
   document.getElementById('caught-count').textContent = '0';
-  document.getElementById('jar-inner').innerHTML = '';
+  document.getElementById('jar-inner').innerHTML      = '';
   document.getElementById('jar-tap-msg').classList.add('hidden');
   document.getElementById('jar-glow').classList.add('hidden');
-
-  // Hide quote overlay
-  const overlay = document.getElementById('quote-overlay');
-  overlay.classList.add('hidden');
-  document.getElementById('quote-text').textContent = '';
-
-  // Show game elements
+  document.getElementById('quote-overlay').classList.add('hidden');
+  document.getElementById('quote-text').textContent  = '';
   document.getElementById('step3-title').classList.remove('hidden');
   document.getElementById('step3-hint').classList.remove('hidden');
   document.getElementById('butterfly-arena').classList.remove('hidden');
   document.getElementById('butterfly-progress').classList.remove('hidden');
 
-  // Reset jar position
   const jar = document.getElementById('butterfly-jar');
-  jar.style.transform  = '';
-  jar.style.transition = '';
-  jar.style.marginTop  = '';
+  jar.style.cssText = '';
 
-  // Build garden flowers
+  // Garden flowers
   const garden = document.querySelector('.garden-bg');
   if (garden) {
     garden.innerHTML = '';
@@ -365,7 +380,7 @@ function initStep3() {
       el.textContent = f;
       el.style.left = `${5 + i * 12}%`;
       el.style.bottom = `${Math.random() * 15}%`;
-      el.style.animationDelay = `${Math.random() * 3}s`;
+      el.style.animationDelay    = `${Math.random() * 3}s`;
       el.style.animationDuration = `${3 + Math.random() * 2}s`;
       garden.appendChild(el);
     });
@@ -379,28 +394,35 @@ function spawnButterflies() {
   if (!arena) return;
   arena.querySelectorAll('.butterfly').forEach(b => b.remove());
   butterflies = [];
-
   if (butterflyRAF) { cancelAnimationFrame(butterflyRAF); butterflyRAF = null; }
 
   const { width: W, height: H } = arena.getBoundingClientRect();
-  const bfW = 54, bfH = 42;
+  const bfSize = 40;   // emoji butterfly size (px)
 
   for (let i = 0; i < CONFIG.TOTAL_BUTTERFLIES; i++) {
     const el = document.createElement('div');
     el.className = 'butterfly';
-    el.innerHTML = makeButterflyGlow(BF_COLORS[i % BF_COLORS.length]);
     el.dataset.index = String(i);
 
-    const x = bfW + Math.random() * (W - bfW * 2);
-    const y = bfH + Math.random() * (H - bfH * 2);
+    // Use 🦋 emoji directly – scales with font-size
+    el.textContent = '🦋';
+    el.style.fontSize = 'clamp(28px, 5vw, 40px)';
+    el.style.lineHeight = '1';
+    el.style.userSelect = 'none';
+    el.style.cursor = 'pointer';
+    el.style.position = 'absolute';
+    // Natural wing flap every 1 second
+    el.style.animation = `wingFlap 1s ease-out ${Math.random()}s infinite`;
+
+    const x = bfSize + Math.random() * (W - bfSize * 2.5);
+    const y = bfSize + Math.random() * (H - bfSize * 2.5);
     const angle = Math.random() * Math.PI * 2;
-    const speed = 0.18 + Math.random() * 0.22;   // slow & gentle
+    const speed = 0.1 + Math.random() * 0.15;   // slow down butterflies smoothly
 
     el.style.left = `${x}px`;
     el.style.top  = `${y}px`;
-    el.style.setProperty('--wing-speed', `${0.5 + Math.random() * 0.4}s`);
 
-    const bf = { el, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, speed, caught: false };
+    const bf = { el, x, y, angle, speed, caught: false };
     butterflies.push(bf);
     arena.appendChild(el);
 
@@ -417,29 +439,28 @@ function animateButterflies() {
   const arena = document.getElementById('butterfly-arena');
   if (!arena) return;
   const { width: W, height: H } = arena.getBoundingClientRect();
-  const bfW = 54, bfH = 42;
+  const bfSize = 40;
 
   butterflies.forEach(bf => {
     if (bf.caught) return;
+    
+    // Smooth natural turning
+    bf.angle += (Math.random() - 0.5) * 0.2;
+    let vx = Math.cos(bf.angle) * bf.speed;
+    let vy = Math.sin(bf.angle) * bf.speed;
 
-    if (Math.random() < 0.012) {
-      const a = Math.random() * Math.PI * 2;
-      bf.vx = Math.cos(a) * bf.speed;
-      bf.vy = Math.sin(a) * bf.speed;
-    }
-
-    bf.x += bf.vx;
-    bf.y += bf.vy;
-
-    if (bf.x < 0)       { bf.x = 0;       bf.vx =  Math.abs(bf.vx); }
-    if (bf.x > W - bfW) { bf.x = W - bfW; bf.vx = -Math.abs(bf.vx); }
-    if (bf.y < 0)       { bf.y = 0;       bf.vy =  Math.abs(bf.vy); }
-    if (bf.y > H - bfH) { bf.y = H - bfH; bf.vy = -Math.abs(bf.vy); }
-
+    bf.x += vx;
+    bf.y += vy;
+    
+    // Bounce off walls smoothly by reflecting angle
+    if (bf.x < 0) { bf.x = 0; bf.angle = Math.PI - bf.angle; }
+    if (bf.x > W - bfSize) { bf.x = W - bfSize; bf.angle = Math.PI - bf.angle; }
+    if (bf.y < 0) { bf.y = 0; bf.angle = -bf.angle; }
+    if (bf.y > H - bfSize) { bf.y = H - bfSize; bf.angle = -bf.angle; }
+    
     bf.el.style.left = `${bf.x}px`;
     bf.el.style.top  = `${bf.y}px`;
   });
-
   butterflyRAF = requestAnimationFrame(animateButterflies);
 }
 
@@ -448,64 +469,58 @@ function captureButterfly(index) {
   if (!bf || bf.caught || isPaused) return;
 
   bf.caught = true;
-  bf.el.classList.add('caught');
-  isPaused = true;   // pause remaining butterflies while quote shows
+  bf.el.style.opacity = '0.3';
+  bf.el.style.pointerEvents = 'none';
+  isPaused = true;
 
-  // Fly-into-jar animation
   const jar     = document.getElementById('butterfly-jar');
   const jarRect = jar.getBoundingClientRect();
   const bfRect  = bf.el.getBoundingClientRect();
 
-  const clone = bf.el.cloneNode(true);
-  clone.classList.remove('caught');
+  // Flying clone
+  const clone = document.createElement('div');
+  clone.textContent  = '🦋';
   clone.style.cssText = `
-    position: fixed;
-    left: ${bfRect.left}px; top: ${bfRect.top}px;
-    width: ${bfRect.width}px; height: ${bfRect.height}px;
-    transition: all 0.7s cubic-bezier(0.4,0,0.2,1);
-    z-index: 999; pointer-events: none;
+    position:fixed; left:${bfRect.left}px; top:${bfRect.top}px;
+    font-size:clamp(28px,5vw,40px); line-height:1;
+    transition:all 0.7s cubic-bezier(0.4,0,0.2,1);
+    z-index:999; pointer-events:none;
   `;
   document.body.appendChild(clone);
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    clone.style.left      = `${jarRect.left + jarRect.width  / 2 - bfRect.width  / 2}px`;
-    clone.style.top       = `${jarRect.top  + jarRect.height / 2 - bfRect.height / 2}px`;
-    clone.style.transform = 'scale(0.4)';
-    clone.style.opacity   = '0.6';
+    clone.style.left      = `${jarRect.left + jarRect.width / 2 - 20}px`;
+    clone.style.top       = `${jarRect.top  + jarRect.height / 2 - 20}px`;
+    clone.style.transform = 'scale(0.45)';
+    clone.style.opacity   = '0.5';
 
     setTimeout(() => {
       clone.remove();
       addButterflyToJar();
       caughtCount++;
       document.getElementById('caught-count').textContent = caughtCount;
-
-      // Show quote overlay centered in the arena
-      document.getElementById('quote-text').textContent = BUTTERFLY_QUOTES[caughtCount - 1];
+      document.getElementById('quote-text').textContent   = BUTTERFLY_QUOTES[caughtCount - 1];
       document.getElementById('quote-overlay').classList.remove('hidden');
-
-    }, 750);
+    }, 730);
   }));
 }
 
 function addButterflyToJar() {
   const inner = document.getElementById('jar-inner');
-  const mini = document.createElement('span');
+  const mini  = document.createElement('span');
   mini.textContent = '🦋';
   mini.style.cssText = `
-    font-size: clamp(10px, 2vw, 16px);
-    display: inline-block;
-    animation: floatY 2s ease-in-out ${Math.random()}s infinite;
+    font-size:clamp(12px,2.5vw,18px);
+    display:inline-block;
+    animation:floatY 2s ease-in-out ${Math.random().toFixed(2)}s infinite;
   `;
   inner.appendChild(mini);
 }
 
 function dismissQuote() {
-  const overlay = document.getElementById('quote-overlay');
-  overlay.classList.add('hidden');
+  document.getElementById('quote-overlay').classList.add('hidden');
   isPaused = false;
-
   if (caughtCount === CONFIG.TOTAL_BUTTERFLIES) {
-    // All caught – switch to full-page jar view
     setTimeout(allCaught, 300);
   }
 }
@@ -513,43 +528,39 @@ function dismissQuote() {
 function allCaught() {
   if (butterflyRAF) { cancelAnimationFrame(butterflyRAF); butterflyRAF = null; }
 
-  // Hide all game UI
   document.getElementById('step3-title').classList.add('hidden');
   document.getElementById('step3-hint').classList.add('hidden');
   document.getElementById('butterfly-arena').classList.add('hidden');
   document.getElementById('butterfly-progress').classList.add('hidden');
 
-  // Enlarge and centre the jar with CSS transition
   const jar = document.getElementById('butterfly-jar');
-  jar.style.transition = 'transform 0.6s ease, margin 0.6s ease';
-  jar.style.transform  = 'scale(1.5)';
-  jar.style.marginTop  = '0';
+  jar.style.transition = 'transform 0.7s ease';
+  jar.style.transform  = 'scale(1.85)';   // bigger jar on completion
 
-  // Glow the jar
   document.getElementById('jar-glow').classList.remove('hidden');
   spawnBurstSparkles(jar);
 
-  // Show the "tap to open" message inside the jar
   setTimeout(() => {
     const tapMsg = document.getElementById('jar-tap-msg');
     tapMsg.textContent = '✨ Tap to Open the Gift 🎁';
     tapMsg.classList.remove('hidden');
-  }, 600);
+  }, 700);
 }
 
 function setupJarClick() {
   document.getElementById('butterfly-jar').addEventListener('click', () => {
-    if (caughtCount === CONFIG.TOTAL_BUTTERFLIES && !isPaused) {
-      goToStep(4);
-    }
+    if (caughtCount === CONFIG.TOTAL_BUTTERFLIES && !isPaused) goToStep(4);
   });
+  document.getElementById('butterfly-jar').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (caughtCount === CONFIG.TOTAL_BUTTERFLIES && !isPaused) goToStep(4);
+  }, { passive: false });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    STEP 4 – BIRTHDAY WISHES
 ═══════════════════════════════════════════════════════════════════════ */
 function initStep4() {
-  // Re-trigger wish animations
   document.querySelectorAll('.wish-line').forEach(el => {
     el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
   });
@@ -557,7 +568,7 @@ function initStep4() {
   // Balloons
   const bc = document.getElementById('balloons-container');
   bc.innerHTML = '';
-  ['🎈','🎀','🎊','🎉','🪅'].forEach((e) => {
+  ['🎈','🎀','🎊','🎉','🪅'].forEach(e => {
     for (let j = 0; j < 3; j++) {
       const el = document.createElement('div');
       el.className = 'balloon';
@@ -572,7 +583,7 @@ function initStep4() {
   // Roses
   const rc = document.getElementById('roses-container');
   rc.innerHTML = '';
-  ['🌹','🌸','💐','🌺'].forEach((e) => {
+  ['🌹','🌸','💐','🌺'].forEach(e => {
     for (let j = 0; j < 2; j++) {
       const el = document.createElement('div');
       el.className = 'rose-deco';
@@ -585,69 +596,62 @@ function initStep4() {
       rc.appendChild(el);
     }
   });
+  // NO button click handled once in setupButtons()
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   STEP 5 – FINAL PAGE
+   STEP 5 – FINAL PAGE  (I LOVE YOU)
 ═══════════════════════════════════════════════════════════════════════ */
 function initStep5() {
-  // Big burst of hearts when page appears
   const container = document.getElementById('global-hearts');
-  for (let i = 0; i < 20; i++) {
-    setTimeout(() => spawnExtraHeart(container), i * 100);
+  for (let i = 0; i < 25; i++) {
+    setTimeout(() => spawnExtraHeart(container), i * 80);
   }
 
-  // Tap/click the big heart → small white hearts fly up from it
+  // Big heart: tap → burst of small white hearts
   const bigHeart = document.getElementById('big-heart');
-  if (bigHeart) {
-    function heartBurst(e) {
-      e.stopPropagation();
-      const r = bigHeart.getBoundingClientRect();
-      const originX = r.left + r.width  / 2;
-      const originY = r.top  + r.height / 2;
-      launchWhiteHearts(originX, originY, 12);
-    }
-    bigHeart.addEventListener('click',      heartBurst);
-    bigHeart.addEventListener('touchstart', (e) => { e.preventDefault(); heartBurst(e); }, { passive: false });
+  if (!bigHeart) return;
+
+  function heartBurst(e) {
+    e.stopPropagation();
+    const finalHeartsContainer = document.querySelector('.final-hearts');
+    launchWhiteHearts(finalHeartsContainer, 22);
   }
+  // Remove old listeners by replacing the element clone trick
+  const fresh = bigHeart.cloneNode(true);
+  bigHeart.parentNode.replaceChild(fresh, bigHeart);
+  fresh.addEventListener('click', heartBurst);
+  fresh.addEventListener('touchstart', (e) => { e.preventDefault(); heartBurst(e); }, { passive: false });
 }
 
-/* Launch small white hearts upward from (ox, oy) */
-function launchWhiteHearts(ox, oy, count) {
+/* Launch many small white hearts upward inside the box */
+function launchWhiteHearts(container, count) {
   for (let i = 0; i < count; i++) {
     const el = document.createElement('span');
-    // Small, pure white heart
     el.textContent = '♥';
-    const size = 10 + Math.random() * 10;   // 10–20 px
-    const drift = (Math.random() - 0.5) * 120;  // horizontal spread
-    const rise  = 160 + Math.random() * 200;    // how far up
-    const dur   = 1.2 + Math.random() * 1.0;    // animation duration
+    const size  = 12 + Math.random() * 16;
+    const drift = (Math.random() - 0.5) * 250;       // wide spread so hearts flow upward in any direction
+    const rise  = 140 + Math.random() * 160;         // keep it within the box height roughly
+    const dur   = 0.9 + Math.random() * 0.8;
 
     el.style.cssText = `
-      position: fixed;
-      left: ${ox}px;
-      top:  ${oy}px;
-      font-size: ${size}px;
-      color: #ffffff;
-      pointer-events: none;
-      z-index: 2000;
-      opacity: 1;
-      user-select: none;
-      text-shadow: 0 0 6px rgba(255,255,255,0.9);
-      transition: transform ${dur}s ease-out, opacity ${dur}s ease-out;
-      will-change: transform, opacity;
+      position:absolute; left:50%; top:50%; 
+      transform: translate(-50%, -50%);
+      font-size:${size}px; color:#ffffff;
+      pointer-events:none; z-index:3000; opacity:1;
+      user-select:none;
+      text-shadow:0 0 8px rgba(255,255,255,0.95),0 0 18px rgba(255,200,220,0.7);
+      transition:transform ${dur}s ease-out, opacity ${dur}s ease-out;
+      will-change:transform,opacity;
     `;
-    document.body.appendChild(el);
+    container.appendChild(el);
 
-    // Delay each heart slightly for a staggered burst
-    const delay = i * 40;
+    const delay = i * 20;
     setTimeout(() => {
-      el.style.transform = `translate(${drift}px, -${rise}px) scale(0.4)`;
+      el.style.transform = `translate(calc(-50% + ${drift}px), calc(-50% - ${rise}px)) scale(0.3)`;
       el.style.opacity   = '0';
-    }, delay + 20);
-
-    // Remove after animation
-    setTimeout(() => el.remove(), delay + dur * 1000 + 100);
+    }, delay + 16);
+    setTimeout(() => el.remove(), delay + dur * 1000 + 200);
   }
 }
 
@@ -655,11 +659,11 @@ function spawnExtraHeart(container) {
   const el = document.createElement('span');
   el.className = 'floating-heart';
   el.textContent = '❤️';
-  el.style.left = `${10 + Math.random() * 80}%`;
-  el.style.bottom = '0';
-  el.style.fontSize = `${1.2 + Math.random() * 1.6}rem`;
+  el.style.left            = `${10 + Math.random() * 80}%`;
+  el.style.bottom          = '0';
+  el.style.fontSize        = `${1.0 + Math.random() * 1.6}rem`;
   el.style.animationDuration = `${4 + Math.random() * 4}s`;
-  el.style.animationDelay = '0s';
+  el.style.animationDelay  = '0s';
   container.appendChild(el);
   setTimeout(() => el.remove(), 8000);
 }
@@ -670,9 +674,7 @@ function spawnExtraHeart(container) {
 function initGlobalHearts() {
   const container = document.getElementById('global-hearts');
   const emojis = ['❤️','🩷','💕','💗','💓','💖'];
-
   for (let i = 0; i < CONFIG.HEART_COUNT; i++) spawnFloatingHeart(container, emojis, true);
-
   setInterval(() => {
     spawnFloatingHeart(container, emojis, false);
     while (container.children.length > CONFIG.HEART_COUNT + 10) container.firstChild.remove();
@@ -683,14 +685,39 @@ function spawnFloatingHeart(container, emojis, spread) {
   const el = document.createElement('span');
   el.className = 'floating-heart';
   el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-  el.style.left = `${Math.random() * 100}%`;
-  el.style.fontSize = `${0.7 + Math.random() * 1.4}rem`;
+  el.style.left  = `${Math.random() * 100}%`;
+  el.style.fontSize = `${0.6 + Math.random() * 1.3}rem`;
   const dur = 8 + Math.random() * 10;
   el.style.animationDuration = `${dur}s`;
-  el.style.animationDelay = spread ? `-${Math.random() * dur}s` : '0s';
+  el.style.animationDelay    = spread ? `-${Math.random() * dur}s` : '0s';
   container.appendChild(el);
   setTimeout(() => el.remove(), (dur + 2) * 1000);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   STEP 6 – REMINDER (MEMORIES)
+═══════════════════════════════════════════════════════════════════════ */
+function initStep6() {
+  const container = document.getElementById('particles-6');
+  if (!container) return;
+  container.innerHTML = '';
+  const memoryEmojis = ['📸', '💬', '🧸', '💖', '✨', '🍿', '🌹', '💑'];
+  for (let i = 0; i < 20; i++) {
+    setTimeout(() => {
+      const el = document.createElement('span');
+      el.className = 'floating-heart';
+      el.textContent = memoryEmojis[Math.floor(Math.random() * memoryEmojis.length)];
+      el.style.left  = `${5 + Math.random() * 90}%`;
+      el.style.bottom = '0';
+      el.style.fontSize = `${0.8 + Math.random() * 1.5}rem`;
+      el.style.animationDuration = `${6 + Math.random() * 6}s`;
+      el.style.animationDelay    = '0s';
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 12000);
+    }, i * 150);
+  }
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════
    GLOBAL SPARKLES
@@ -713,7 +740,7 @@ function initGlobalSparkles() {
 function spawnBurstSparkles(targetEl) {
   const { left, top, width, height } = targetEl.getBoundingClientRect();
   const cx = left + width / 2, cy = top + height / 2;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 22; i++) {
     const dot = document.createElement('div');
     dot.style.cssText = `
       position:fixed; width:${5+Math.random()*6}px; height:${5+Math.random()*6}px;
@@ -722,12 +749,12 @@ function spawnBurstSparkles(targetEl) {
       transition:all 0.9s cubic-bezier(0.4,0,0.2,1); opacity:1;
     `;
     document.body.appendChild(dot);
-    const angle = (i / 20) * Math.PI * 2;
-    const dist  = 50 + Math.random() * 70;
+    const angle = (i / 22) * Math.PI * 2;
+    const dist  = 55 + Math.random() * 80;
     setTimeout(() => {
-      dot.style.left    = `${cx + Math.cos(angle) * dist}px`;
-      dot.style.top     = `${cy + Math.sin(angle) * dist}px`;
-      dot.style.opacity = '0';
+      dot.style.left      = `${cx + Math.cos(angle) * dist}px`;
+      dot.style.top       = `${cy + Math.sin(angle) * dist}px`;
+      dot.style.opacity   = '0';
       dot.style.transform = 'scale(0)';
     }, 50);
     setTimeout(() => dot.remove(), 1000);
@@ -741,27 +768,38 @@ function initMusicPlayer() {
   const btn   = document.getElementById('music-btn');
   const audio = document.getElementById('bg-music');
   audio.volume = 0.35;
+  audio.muted = false; // Start unmuted
 
   btn.addEventListener('click', () => {
-    if (musicPlaying) {
-      audio.pause();
+    audio.muted = !audio.muted;
+    if (audio.muted) {
       btn.classList.remove('playing');
       btn.querySelector('.music-icon').textContent = '🎵';
-      musicPlaying = false;
     } else {
-      audio.play().then(() => {
-        btn.classList.add('playing');
-        btn.querySelector('.music-icon').textContent = '🎶';
-        musicPlaying = true;
-      }).catch(() => {});
+      // Just in case it was paused or failed to start initially, try playing it
+      audio.play().catch(() => {});
+      btn.classList.add('playing');
+      btn.querySelector('.music-icon').textContent = '🎶';
     }
   });
 
+  // Attempt initial play
   audio.play().then(() => {
     btn.classList.add('playing');
     btn.querySelector('.music-icon').textContent = '🎶';
-    musicPlaying = true;
-  }).catch(() => {});
+  }).catch(() => {
+    // If browser blocks autoplay, play on first user interaction anywhere
+    const startPlay = () => {
+      audio.play().then(() => {
+        btn.classList.add('playing');
+        btn.querySelector('.music-icon').textContent = '🎶';
+        document.removeEventListener('click', startPlay);
+        document.removeEventListener('touchstart', startPlay, { passive: true });
+      }).catch(() => {});
+    };
+    document.addEventListener('click', startPlay);
+    document.addEventListener('touchstart', startPlay, { passive: true });
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -772,7 +810,7 @@ function initMusicPlayer() {
     const c = document.getElementById(`particles-${n}`);
     if (!c) return;
     for (let i = 0; i < 8; i++) {
-      const orb = document.createElement('div');
+      const orb  = document.createElement('div');
       const size = 60 + Math.random() * 140;
       orb.style.cssText = `
         position:absolute; width:${size}px; height:${size}px; border-radius:50%;

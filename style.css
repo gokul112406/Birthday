@@ -412,11 +412,10 @@ body {
   position: relative;
   z-index: 50;
 }
-/* Step 4 NO button – completely static, never moves */
+/* Step 4 NO – visible & clickable but never moves */
 .btn-no-static {
-  pointer-events: none;
-  opacity: 0.5;
-  cursor: not-allowed;
+  cursor: pointer;
+  opacity: 0.7;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -491,29 +490,27 @@ body {
   cursor: default;
 }
 
-/* Individual butterfly */
+/* Individual butterfly – emoji style */
 .butterfly {
   position: absolute;
-  width: clamp(38px, 7vw, 54px);
-  height: clamp(28px, 5vw, 42px);
-  cursor: grab;
+  cursor: pointer;
   user-select: none;
   z-index: 10;
-  transition: filter 0.2s;
+  touch-action: manipulation;
+  filter: drop-shadow(0 0 6px rgba(255,150,200,0.5));
+  transition: opacity 0.3s;
 }
-.butterfly:active { cursor: grabbing; }
-.butterfly.caught { opacity: 0.4; pointer-events: none; }
-.butterfly svg { width: 100%; height: 100%; }
+.butterfly.caught { opacity: 0.25; pointer-events: none; }
 
-/* Wing flap */
-.wing-left, .wing-right {
-  transform-origin: center;
-  animation: wingFlap var(--wing-speed, 0.35s) ease-in-out infinite alternate;
-}
-.wing-right { animation-direction: alternate-reverse; }
+/* Emoji butterfly animations */
 @keyframes wingFlap {
-  0%   { transform: scaleX(1) scaleY(0.6); }
-  100% { transform: scaleX(0.4) scaleY(1.1); }
+  0%, 100% { transform: scaleX(1) translateY(0) rotate(-3deg); }
+  35%      { transform: scaleX(0.4) translateY(-6px) rotate(4deg); }
+  70%      { transform: scaleX(1) translateY(0) rotate(-3deg); }
+}
+@keyframes butterflyBob {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
 }
 
 /* Progress */
@@ -550,8 +547,8 @@ body {
   border-bottom: none;
 }
 .jar-glass {
-  width: clamp(70px, 13vw, 100px);
-  height: clamp(80px, 15vw, 120px);
+  width: clamp(80px, 16vw, 120px);
+  height: clamp(90px, 18vw, 140px);
   background: linear-gradient(135deg, rgba(200,230,255,0.22), rgba(180,200,255,0.1));
   border: 1.5px solid rgba(255,255,255,0.45);
   border-radius: 4px 4px 24px 24px;
@@ -789,6 +786,7 @@ body {
   z-index: 5;
   text-align: center;
   max-width: min(90vw, 580px);
+  overflow: hidden; /* Keeps the flying white hearts inside the box */
 }
 
 .final-heading {
@@ -823,11 +821,16 @@ body {
 }
 
 .final-hearts {
+  position: relative;
   animation: fadeSlideUp 1s 1s both;
 }
 .big-heart {
-  font-size: clamp(2.5rem, 7vw, 4rem);
+  font-size: clamp(3rem, 9vw, 5rem);
   display: inline-block;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  padding: 12px;           /* bigger tap target on mobile */
+  touch-action: manipulation;
 }
 .pulse-heart {
   animation: heartBeat 1.4s ease-in-out infinite;
@@ -839,17 +842,26 @@ body {
   42%      { transform: scale(1.12); }
 }
 
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
-   RESPONSIVE ADJUSTMENTS
+   RESPONSIVE – MOBILE FIRST
 ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 500px) {
-  .step { justify-content: flex-start; padding-top: 16px; overflow-y: auto; }
-  .glass-card { padding: 20px 16px; }
-  .countdown-grid { gap: 6px; }
+  .step { justify-content: flex-start; padding-top: 12px; overflow-y: auto; }
+  .glass-card { padding: 18px 14px; border-radius: 18px; }
+  .countdown-grid { gap: 5px; }
   .countdown-sep { padding-top: 10px; }
-  .butterfly-arena { height: min(28vh, 220px); }
-  .step1-content { margin: 0 12px; }
-  .birthday-card { margin: 16px 0; }
+  .butterfly-arena { height: min(32vh, 220px); width: 92vw; }
+  .step1-content { margin: 0 8px; }
+  .birthday-card { margin: 12px 0; }
+  .step-buttons { gap: 12px; margin-top: 16px; }
+  .btn-yes, .btn-no { padding: 12px 28px; font-size: 1.1rem; }
+  .jar-glass { width: clamp(70px, 20vw, 110px); height: clamp(80px, 22vw, 130px); }
+  .butterfly { font-size: clamp(24px, 7vw, 36px) !important; }
 }
 
 @media (min-width: 1200px) {
