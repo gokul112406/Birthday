@@ -6,7 +6,7 @@
 
 /* ── CONFIG ─────────────────────────────────────────────────────────── */
 const CONFIG = {
-  BIRTHDAY: new Date(2026, 7, 24, 0, 0, 0),
+  BIRTHDAY: new Date(2026, 6, 24, 0, 0, 0),
   TOTAL_BUTTERFLIES: 8,
   HEART_COUNT: 22,
   SPARKLE_COUNT: 35,
