@@ -160,7 +160,7 @@ function setupButtons() {
       const bubble = document.getElementById(`pin-${i}`);
       if (!bubble) continue;
       if (i < enteredPin.length) {
-        bubble.textContent = enteredPin[i];
+        bubble.textContent = '❤️';
         bubble.classList.add('filled');
       } else {
         bubble.textContent = '';
@@ -181,6 +181,26 @@ function setupButtons() {
 
   document.querySelectorAll('.pin-key').forEach(btn => {
     btn.addEventListener('click', () => {
+      // Spawn multiple floating white hearts
+      const rect = btn.getBoundingClientRect();
+      for (let k = 0; k < 4; k++) {
+        setTimeout(() => {
+          const el = document.createElement('div');
+          el.textContent = '🤍';
+          const offsetX = (Math.random() - 0.5) * 40;
+          const size = 0.4 + Math.random() * 0.4;
+          const dur = 0.7 + Math.random() * 0.5;
+          el.style.cssText = `
+            position: fixed; left: ${rect.left + rect.width / 2 + offsetX}px; top: ${rect.top + rect.height / 2}px;
+            font-size: ${size}rem; pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            animation: floatUpFadeHeart ${dur}s ease-out forwards;
+          `;
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), dur * 1000 + 100);
+        }, k * 50);
+      }
+
       const val = btn.dataset.value;
       if (val === 'clear') {
         enteredPin = '';
