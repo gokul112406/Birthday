@@ -28,9 +28,46 @@
   </div>
 
   <!-- ===================================================================== -->
+  <!--  STEP 0 – PASSWORD PAGE                                               -->
+  <!-- ===================================================================== -->
+  <section id="step-0" class="step active" aria-label="Password Verification Page">
+    <div class="particles-container" id="particles-0"></div>
+
+    <div class="step1-content glass-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px 20px; max-width: min(90vw, 380px);">
+      <div class="step1-emoji float-anim" style="font-size: 2.2rem; margin-bottom: -5px;">🔒</div>
+      <h1 class="step1-heading" style="font-size: clamp(1.8rem, 5vw, 2.5rem); margin-bottom: -5px;">Enter Password</h1>
+      <p class="step1-sub" style="font-size: 1rem; margin-bottom: 5px;">To unlock your special surprise… 💖</p>
+
+      <!-- Pin Bubbles (Shows entered numbers) -->
+      <div class="pin-display">
+        <div class="pin-bubble" id="pin-0"></div>
+        <div class="pin-bubble" id="pin-1"></div>
+        <div class="pin-bubble" id="pin-2"></div>
+        <div class="pin-bubble" id="pin-3"></div>
+      </div>
+
+      <!-- Keypad -->
+      <div class="pin-keypad">
+        <button class="pin-key" data-value="1">1</button>
+        <button class="pin-key" data-value="2">2</button>
+        <button class="pin-key" data-value="3">3</button>
+        <button class="pin-key" data-value="4">4</button>
+        <button class="pin-key" data-value="5">5</button>
+        <button class="pin-key" data-value="6">6</button>
+        <button class="pin-key" data-value="7">7</button>
+        <button class="pin-key" data-value="8">8</button>
+        <button class="pin-key" data-value="9">9</button>
+        <button class="pin-key action-key" data-value="clear">✕</button>
+        <button class="pin-key" data-value="0">0</button>
+        <button class="pin-key action-key" data-value="back">⌫</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
   <!--  STEP 1 – COUNTDOWN PAGE                                              -->
   <!-- ===================================================================== -->
-  <section id="step-1" class="step active" aria-label="Countdown Page">
+  <section id="step-1" class="step hidden" aria-label="Countdown Page">
     <div class="particles-container" id="particles-1"></div>
 
     <div class="step1-content glass-card">

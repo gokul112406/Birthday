@@ -27,7 +27,7 @@ const BUTTERFLY_QUOTES = [
 ];
 
 /* ── STATE ───────────────────────────────────────────────────────────── */
-let currentStep     = 1;
+let currentStep     = 0;
 let caughtCount     = 0;
 let countdownInterval = null;
 let butterflies     = [];
@@ -153,6 +153,67 @@ function goToStep(next) {
    BUTTON SETUP
 ═══════════════════════════════════════════════════════════════════════ */
 function setupButtons() {
+  let enteredPin = '';
+  
+  function updatePinUI() {
+    for (let i = 0; i < 4; i++) {
+      const bubble = document.getElementById(`pin-${i}`);
+      if (!bubble) continue;
+      if (i < enteredPin.length) {
+        bubble.textContent = enteredPin[i];
+        bubble.classList.add('filled');
+      } else {
+        bubble.textContent = '';
+        bubble.classList.remove('filled');
+      }
+    }
+  }
+
+  function verifyPin() {
+    if (enteredPin === '1124') {
+      goToStep(1);
+    } else {
+      showPopup("Oops! That's not the right password, my love. 🤫 Try again!", '🔒');
+      enteredPin = '';
+      updatePinUI();
+    }
+  }
+
+  document.querySelectorAll('.pin-key').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.value;
+      if (val === 'clear') {
+        enteredPin = '';
+      } else if (val === 'back') {
+        enteredPin = enteredPin.slice(0, -1);
+      } else {
+        if (enteredPin.length < 4) {
+          enteredPin += val;
+        }
+      }
+      updatePinUI();
+      if (enteredPin.length === 4) {
+        setTimeout(verifyPin, 150);
+      }
+    });
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (currentStep !== 0) return;
+    if (e.key >= '0' && e.key <= '9') {
+      if (enteredPin.length < 4) {
+        enteredPin += e.key;
+        updatePinUI();
+        if (enteredPin.length === 4) {
+          setTimeout(verifyPin, 150);
+        }
+      }
+    } else if (e.key === 'Backspace') {
+      enteredPin = enteredPin.slice(0, -1);
+      updatePinUI();
+    }
+  });
+
   const skip = document.getElementById('skip-btn');
   if (skip) skip.addEventListener('click', () => { clearInterval(countdownInterval); goToStep(2); });
 
@@ -810,7 +871,7 @@ function initMusicPlayer() {
    PARTICLE ORBS PER STEP
 ═══════════════════════════════════════════════════════════════════════ */
 (function injectParticles() {
-  [1, 2, 3, 4, 5].forEach(n => {
+  [0, 1, 2, 3, 4, 5, 6].forEach(n => {
     const c = document.getElementById(`particles-${n}`);
     if (!c) return;
     for (let i = 0; i < 8; i++) {
