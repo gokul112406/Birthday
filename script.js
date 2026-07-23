@@ -171,7 +171,7 @@ function setupButtons() {
 
   function verifyPin() {
     if (enteredPin === '1124') {
-      goToStep(1);
+      goToStep(2);
     } else {
       showPopup("Oops! That's not the right password, my love. 🤫 Try again!", '🔒');
       enteredPin = '';
@@ -219,7 +219,7 @@ function setupButtons() {
   });
 
   document.addEventListener('keydown', (e) => {
-    if (currentStep !== 0) return;
+    if (currentStep !== 1) return;
     if (e.key >= '0' && e.key <= '9') {
       if (enteredPin.length < 4) {
         enteredPin += e.key;
@@ -235,7 +235,7 @@ function setupButtons() {
   });
 
   const skip = document.getElementById('skip-btn');
-  if (skip) skip.addEventListener('click', () => { clearInterval(countdownInterval); goToStep(2); });
+  if (skip) skip.addEventListener('click', () => { clearInterval(countdownInterval); goToStep(1); });
 
   const yes2 = document.getElementById('yes-btn-2');
   if (yes2) yes2.addEventListener('click', () => goToStep(3));
@@ -403,7 +403,7 @@ function startCountdown() {
   countdownInterval = setInterval(() => {
     if (updateCountdown()) {
       clearInterval(countdownInterval);
-      setTimeout(() => goToStep(2), 1800);
+      setTimeout(() => goToStep(1), 1800);
     }
   }, 1000);
 }
